@@ -41,7 +41,7 @@ def main():
 
     # Prepare dataset
     dataset_df = pd.read_csv(args.dataset)
-    dataset_df['rownames'] = dataset_df['sample_id'] + '_' + dataset_df['object_id'].astype(str)
+    dataset_df['rownames'] = dataset_df['sample_id'].astype(str) + '_' + dataset_df['object_id'].astype(str)
     dataset_df.set_index('rownames', inplace=True)
 
     interest_columns = ['image_name', 'sample_id', 'object_id', 'cell_type', 'patient_id', 'area', 'x', 'y', 'user_init_label']
