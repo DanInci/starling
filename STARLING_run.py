@@ -16,6 +16,8 @@ from starling import starling, utility, label_mapper
 COLUMNS_OF_INTEREST = ['sample_id', 'object_id', 'cell_type', 'init_label',
                        'st_label', 'doublet', 'doublet_prob', 'max_assign_prob']
 
+UNLABELED_CELL_TYPES = ['unlabeled', 'undefined', 'unknown', 'BnTcell', "BnT cell"]
+
 
 def main():
     parser = argparse.ArgumentParser(description='starling')
@@ -67,7 +69,8 @@ def main():
     assert "init_label" in adata.obs
     assert adata.obs["init_label"].shape == (adata.X.shape[0],)
 
-    print("Init ARI:", adjusted_rand_score(adata.obs['cell_type'], adata.obs['init_label']))
+    labeled_obs = adata.obs[~adata.obs['cell_type'].isin(UNLABELED_CELL_TYPES)]
+    print("Init ARI:", adjusted_rand_score(labeled_obs['cell_type'], labeled_obs['init_label']))
 
     # Setting initializations
     st = starling.ST(adata, learning_rate=args.lr, singlet_prop=args.error_free_cells_prop)
@@ -95,7 +98,9 @@ def main():
 
     # map st label to cell type
     st.adata.obs['st_label'] = mapper.get_pred_labels(st.adata.obs['st_label'])
-    print("Starling ARI:", adjusted_rand_score(adata.obs['cell_type'], st.adata.obs['st_label']))
+
+    st.labeled_obs = st.adata.obs[~st.adata.obs['cell_type'].isin(UNLABELED_CELL_TYPES)]
+    print("Starling ARI:", adjusted_rand_score(st.labeled_obs['cell_type'], st.labeled_obs['st_label']))
 
     # Save annotated dataset
     adata.write(filename=os.path.join(args.base_path, 'starling_anndata.h5ad'))
