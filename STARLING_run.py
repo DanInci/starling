@@ -3,7 +3,6 @@ import json
 import argparse
 
 import anndata as ad
-import pandas as pd
 import numpy as np
 import scanpy as sc
 
@@ -12,6 +11,7 @@ from lightning_lite import seed_everything
 from pytorch_lightning.callbacks import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 from sklearn.metrics import adjusted_rand_score
+from sklearn.preprocessing import MinMaxScaler
 
 from starling import starling, utility, label_mapper
 
@@ -24,7 +24,7 @@ UNLABELED_CELL_TYPES = ['unlabeled', 'undefined', 'unknown', 'BnTcell', "BnT cel
 def _plot_umap(adata):
     sc.pp.neighbors(adata)
     sc.tl.umap(adata)
-    fig = sc.pl.umap(adata, color=['st_pred'], size=5, return_fig=True)
+    fig = sc.pl.umap(adata, color=['cell_type', 'init_label', 'st_label'], size=14, ncols=3, wspace=0.3, return_fig=True)
 
     return fig
 
@@ -33,6 +33,7 @@ def main():
     parser = argparse.ArgumentParser(description='starling')
     parser.add_argument('--base_path', type=str, required=True,
                         help='configuration_path')
+    parser.add_argument('--scale', type=str, required=False, default=True)
     args = parser.parse_args()
 
     config_path = os.path.join(args.base_path, "config.json")
@@ -51,6 +52,12 @@ def main():
 
     # Load data
     adata = ad.read_h5ad(args.dataset)
+
+    # Scale expression data
+    if args.scale:
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        X_scaled_df = scaler.fit_transform(adata.X)
+        adata.X = X_scaled_df
 
     # Annotate initial clustering with KM clustering results
     print(f'Initial cluster annotation using `{args.init_clustering_method}` algorithm.')
@@ -117,7 +124,7 @@ def main():
     figure.savefig(os.path.join(args.base_path, 'UMAP_predictions.pdf'), format="pdf", bbox_inches="tight")
 
     # Calculate ARI Score of labeled results
-    labeled_results_df = results_df[~results_df['cell_type'].isin(UNLABELED_CELL_TYPES)]
+    labeled_results_df = results_df[~results_df['label'].isin(UNLABELED_CELL_TYPES)]
 
     print("Init ARI:", adjusted_rand_score(labeled_results_df['label'], labeled_results_df['init_pred']))
     print("Starling ARI:", adjusted_rand_score(labeled_results_df['label'], labeled_results_df['st_pred']))
